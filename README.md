@@ -31,7 +31,7 @@ python3 --version
 
 Your folder should look like this:
 
-```
+```text
 flask_pg_demo_project/
 │
 ├── .venv/
