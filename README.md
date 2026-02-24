@@ -3,14 +3,15 @@
 This guide shows how to:
 
 ✅ Run PostgreSQL in Docker (or reuse an existing container like **pgacid**)  
-✅ Connect the Flask API (`app.py`) to PostgreSQL  
+✅ Connect the Flask API to PostgreSQL using environment variables  
 ✅ Load records from `data.json`  
-✅ Run filtered searches  
-✅ Demonstrate indexing and before/after query performance
+✅ Run filtered searches (with optional masking)  
+✅ Demonstrate indexing and before/after query performance using `EXPLAIN ANALYZE`  
+✅ Run dataset-level data quality analysis
 
 ---
 
-# 1. Prerequisites
+## 1. Prerequisites
 
 Install:
 
@@ -23,7 +24,6 @@ Verify:
 ```bash
 docker --version
 python3 --version
-```
 
 ---
 
@@ -32,11 +32,32 @@ python3 --version
 Your folder should look like this:
 
 ```
-flask_pg_simple/
+flask_pg_demo_project/
+│
+├── .venv/
+├── src/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── db/
+│   │   ├── __init__.py
+│   │   ├── conn.py
+│   │   └── schema.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── masking.py
+│   │   ├── seeding.py
+│   │   └── dq.py
+│   └── routes/
+│       ├── __init__.py
+│       ├── seed_routes.py
+│       ├── search_routes.py
+│       ├── perf_routes.py
+│       └── dq_routes.py
 │
 ├── app.py
 ├── data.json
 ├── .env
+├── requirements.txt
 └── README.md
 ```
 
@@ -69,7 +90,7 @@ docker ps
 You should see:
 
 ```
-pgacid   postgres   5432/tcp
+pgacid   postgres    0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
 ```
 
 ---
@@ -132,6 +153,11 @@ source .venv/bin/activate
 
 Install dependencies:
 
+```bash
+pip install -r requirements.txt
+```
+
+If you don't have requirements.txt yet, download these packages:
 ```bash
 pip install Flask psycopg2-binary python-dotenv
 ```
@@ -225,16 +251,24 @@ Example response:
 
 ### Available Filters
 
-| Parameter | Example |
-|---|---|
-| city | `city=Seattle` |
-| status | `status=active` |
-| name | `name=Ava` |
+| Parameter | Example                                       |
+| --------- | --------------------------------------------- |
+| city      | `city=Seattle`                                |
+| status    | `status=active`                               |
+| name      | `name=Ava` (partial match using ILIKE %...%)  |
+| mask      | `mask=true` (masks full_name in the response) |
+
 
 Combine filters:
 
 ```bash
 curl "http://localhost:5000/search?city=Minneapolis&status=active&name=Ava"
+```
+
+Mask names:
+
+```bash
+curl "http://localhost:5000/search?city=Minneapolis&status=active&mask=true"
 ```
 
 ---
@@ -329,6 +363,24 @@ before and after indexing.
 > Note: With only ~20 rows, PostgreSQL may still choose a sequential scan because it is faster for tiny tables. This is normal behavior.
 
 ---
+
+# 13. Dataset Quality Analytics
+
+Run:
+
+```
+curl "http://localhost:5000/dq/analyze"
+```
+
+Example response:
+
+{
+  "row_count": 20,
+  "status_distribution": {"active": 55.0, "inactive": 45.0},
+  "top_city": {"city": "Minneapolis", "percentage": 30.0},
+  "warnings": [],
+  "passed": true
+}
 
 # 13. Stop PostgreSQL Container
 
